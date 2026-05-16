@@ -112,7 +112,7 @@ export default function AgentePage() {
         padding: 24,
       }}
     >
-      <h1 style={{ fontSize: 32, marginBottom: 8 }}>Mi Primer Agente IA</h1>
+      <h1 style={{ fontSize: 32, marginBottom: 8 }}>Arte en la Clase Agente IA</h1>
       <p style={{ color: '#4b5563', marginBottom: 24 }}>
         Agente mixto para Artes Visuales con modo Profesor y modo Estudiante.
       </p>
