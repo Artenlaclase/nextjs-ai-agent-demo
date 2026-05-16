@@ -1,5 +1,5 @@
 import { openai } from '@ai-sdk/openai';
-import { streamText, tool, UIMessage, convertToModelMessages } from 'ai';
+import { streamText, tool, type ModelMessage } from 'ai';
 import { z } from 'zod';
 import { runQuery, type SqlParam } from '@/lib/db';
 
@@ -95,18 +95,61 @@ function assertProfesorMode(mode: AgentMode, toolName: string) {
   }
 }
 
+function hasUsableOpenAIKey() {
+  const apiKey = process.env.OPENAI_API_KEY?.trim();
+
+  if (!apiKey) {
+    return false;
+  }
+
+  if (apiKey === 'your_openai_api_key_here') {
+    return false;
+  }
+
+  return apiKey.startsWith('sk-');
+}
+
 export async function POST(req: Request) {
   const body: unknown = await req.json();
   const parsed = z
     .object({
       mode: modeSchema.optional(),
-      messages: z.array(z.custom<UIMessage>()),
+      messages: z
+        .array(
+          z.object({
+            role: z.enum(['user', 'assistant', 'system']),
+            content: z.string(),
+          }),
+        )
+        .min(1),
     })
-    .parse(body);
+    .safeParse(body);
 
-  const mode: AgentMode = parsed.mode ?? 'estudiante';
-  const messages = parsed.messages;
-  const modelMessages = await convertToModelMessages(messages);
+  if (!parsed.success) {
+    return Response.json(
+      {
+        error: 'Payload invalido. Se esperaba { mode?, messages: [{ role, content }] }.',
+        details: parsed.error.flatten(),
+      },
+      { status: 400 },
+    );
+  }
+
+  const mode: AgentMode = parsed.data.mode ?? 'estudiante';
+  const modelMessages: ModelMessage[] = parsed.data.messages.map((message) => ({
+    role: message.role,
+    content: message.content,
+  }));
+
+  if (!hasUsableOpenAIKey()) {
+    return Response.json(
+      {
+        error:
+          'OPENAI_API_KEY no esta configurada correctamente. Usa una clave real (sk-...) en .env.local y reinicia `npm run dev`.',
+      },
+      { status: 500 },
+    );
+  }
 
   const result = streamText({
     model: openai('gpt-4.1'),

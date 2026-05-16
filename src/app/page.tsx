@@ -46,7 +46,18 @@ export default function AgentePage() {
       });
 
       if (!response.ok) {
-        throw new Error('No se pudo obtener una respuesta del agente.');
+        let serverError = `Error ${response.status}: no se pudo obtener una respuesta del agente.`;
+
+        try {
+          const errorPayload = (await response.json()) as { error?: string };
+          if (errorPayload?.error) {
+            serverError = errorPayload.error;
+          }
+        } catch {
+          // Keep fallback error message when response is not JSON.
+        }
+
+        throw new Error(serverError);
       }
 
       const reader = response.body?.getReader();
