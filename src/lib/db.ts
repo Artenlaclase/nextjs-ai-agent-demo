@@ -1,8 +1,8 @@
-import mysql, { type Pool, type RowDataPacket, type OkPacket } from 'mysql2/promise';
+import mysql, { type Pool, type OkPacket } from 'mysql2/promise';
 
 export type SqlParam = string | number | boolean | null;
 
-export type QueryResultRow = RowDataPacket;
+export type QueryResultRow = Record<string, unknown>;
 
 export type QueryResult<T extends QueryResultRow = QueryResultRow> = {
   rows: T[];
@@ -59,6 +59,6 @@ export async function runQuery<T extends QueryResultRow = QueryResultRow>(
   return {
     rows: [],
     rowCount: result.affectedRows,
-    command: result.warningStatus ? 'WRITE_WITH_WARNINGS' : 'WRITE',
+    command: 'WRITE',
   };
 }
