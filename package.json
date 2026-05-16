@@ -12,6 +12,7 @@
     "@ai-sdk/openai": "latest",
     "ai": "latest",
     "next": "latest",
+    "pg": "^8.20.0",
     "react": "latest",
     "react-dom": "latest",
     "zod": "latest"
