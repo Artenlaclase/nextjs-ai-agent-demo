@@ -1,5 +1,5 @@
 import { openai } from '@ai-sdk/openai';
-import { streamText, tool, type ModelMessage } from 'ai';
+import { stepCountIs, streamText, tool, type ModelMessage } from 'ai';
 import { z } from 'zod';
 import { runQuery, type SqlParam } from '@/lib/db';
 
@@ -154,6 +154,7 @@ export async function POST(req: Request) {
   const result = streamText({
     model: openai('gpt-4.1'),
     messages: modelMessages,
+    stopWhen: stepCountIs(5),
     system: getSystemPrompt(mode),
     tools: {
       crear_rubrica: tool({
@@ -382,5 +383,5 @@ export async function POST(req: Request) {
     },
   });
 
-  return result.toUIMessageStreamResponse();
+  return result.toTextStreamResponse();
 }
