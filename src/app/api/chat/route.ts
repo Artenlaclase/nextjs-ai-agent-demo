@@ -147,7 +147,7 @@ export async function POST(req: Request) {
         error:
           'OPENAI_API_KEY no esta configurada correctamente. Usa una clave real (sk-...) en .env.local y reinicia `npm run dev`.',
       },
-      { status: 500 },
+      { status: 400 },
     );
   }
 
