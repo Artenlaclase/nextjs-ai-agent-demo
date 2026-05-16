@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useState } from 'react';
+import { generateUUID } from '@/lib/uuid';
 
 type AgentMode = 'profesor' | 'estudiante';
 
@@ -23,7 +24,7 @@ export default function AgentePage() {
     if (!trimmedInput || isLoading) return;
 
     const userMessage: ChatMessage = {
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       role: 'user',
       content: trimmedInput,
     };
@@ -67,7 +68,7 @@ export default function AgentePage() {
         throw new Error('La respuesta no incluye un stream legible.');
       }
 
-      const assistantId = crypto.randomUUID();
+      const assistantId = generateUUID();
       setMessages((current) => [
         ...current,
         { id: assistantId, role: 'assistant', content: '' },
@@ -94,7 +95,7 @@ export default function AgentePage() {
       setMessages((current) => [
         ...current,
         {
-          id: crypto.randomUUID(),
+          id: generateUUID(),
           role: 'assistant',
           content: `Error: ${errorMessage}`,
         },
