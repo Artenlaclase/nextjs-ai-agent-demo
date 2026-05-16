@@ -82,7 +82,18 @@ try {
 
   console.log('[db-check] Conexion MySQL OK.');
 } catch (error) {
-  const message = error instanceof Error ? error.message : String(error);
-  console.error(`[db-check] No se pudo conectar a MySQL: ${message}`);
+  const maybeError = error && typeof error === 'object' ? error : {};
+  const baseMessage = error instanceof Error ? error.message : String(error);
+  const details = [
+    'code' in maybeError && maybeError.code ? `code=${maybeError.code}` : null,
+    'address' in maybeError && maybeError.address ? `host=${maybeError.address}` : null,
+    'port' in maybeError && maybeError.port ? `port=${maybeError.port}` : null,
+    'sqlMessage' in maybeError && maybeError.sqlMessage ? `sqlMessage=${maybeError.sqlMessage}` : null,
+  ]
+    .filter(Boolean)
+    .join(', ');
+
+  const suffix = details ? ` (${details})` : '';
+  console.error(`[db-check] No se pudo conectar a MySQL: ${baseMessage}${suffix}`);
   process.exit(1);
 }
