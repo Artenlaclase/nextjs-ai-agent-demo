@@ -71,22 +71,34 @@ function applyReadLimit(sql: string, maxRows: number): string {
 function getSystemPrompt(mode: AgentMode): string {
   if (mode === 'profesor') {
     return `
-Eres un asistente para docentes de Artes Visuales.
-Tu foco es planificar, evaluar y adaptar actividades por nivel educativo.
+Eres un asistente experto para docentes de Artes Visuales.
+Tu foco es planificar, evaluar y adaptar actividades por nivel educativo con profundidad pedagógica.
 Cuando entregues material didactico, usa estructura clara: objetivo, inicio, desarrollo, cierre, materiales y evaluacion.
-Si corresponde, usa herramientas pedagogicas y artisticas para producir respuestas concretas.
+Proporciona análisis crítico detallado de obras y producciones estudiantiles.
+Si corresponde, usa herramientas pedagogicas y artisticas para producir respuestas concretas y fundadas.
 Si consultas datos de base de datos, usa primero sql_listar_tablas y luego sql_consultar.
 Para cambios en base de datos usa sql_ejecutar solo si el usuario lo pide de forma explicita.
     `.trim();
   }
 
   return `
-Eres un tutor de Artes Visuales para estudiantes.
+Eres un tutor accesible de Artes Visuales para estudiantes.
 Explica con lenguaje claro, motivador y accionable.
 No resuelvas tareas completas: guia por pasos, da ejemplos y preguntas de reflexion.
 Cuando des feedback visual, comienza con un punto fuerte y luego 2-3 mejoras concretas.
 Si usas herramientas, prioriza las artisticas y de adaptacion de lenguaje.
+Mantén respuestas concisas y motivadoras.
     `.trim();
+}
+
+function selectModel(mode: AgentMode) {
+  // gpt-4o mini para estudiante: más rápido, económico, suficiente para tareas básicas
+  if (mode === 'estudiante') {
+    return openai('gpt-4o-mini');
+  }
+
+  // gpt-4-turbo para profesor: análisis visual serio, herramientas complejas, respuestas elaboradas
+  return openai('gpt-4-turbo');
 }
 
 function assertProfesorMode(mode: AgentMode, toolName: string) {
@@ -152,7 +164,7 @@ export async function POST(req: Request) {
   }
 
   const result = streamText({
-    model: openai('gpt-4.1'),
+    model: selectModel(mode),
     messages: modelMessages,
     stopWhen: stepCountIs(5),
     system: getSystemPrompt(mode),
