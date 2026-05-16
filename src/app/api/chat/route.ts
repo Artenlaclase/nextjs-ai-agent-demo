@@ -392,7 +392,7 @@ ${contexto ? `Contexto adicional: ${contexto}` : ''}
             `
             SELECT table_name
             FROM information_schema.tables
-            WHERE table_schema = 'public'
+            WHERE table_schema = DATABASE()
             ORDER BY table_name ASC
             `,
           );

@@ -11,6 +11,7 @@
   "dependencies": {
     "@ai-sdk/openai": "^3.0.64",
     "ai": "^6.0.184",
+    "mysql2": "^3.22.3",
     "next": "latest",
     "pg": "^8.20.0",
     "react": "latest",

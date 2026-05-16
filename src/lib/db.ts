@@ -1,6 +1,14 @@
-import { Pool, type QueryResult, type QueryResultRow } from 'pg';
+import mysql, { type Pool, type RowDataPacket, type OkPacket } from 'mysql2/promise';
 
 export type SqlParam = string | number | boolean | null;
+
+export type QueryResultRow = RowDataPacket;
+
+export type QueryResult<T extends QueryResultRow = QueryResultRow> = {
+  rows: T[];
+  rowCount: number;
+  command: string;
+};
 
 declare global {
   // Reuse one pool in dev to avoid exhausting DB connections during hot reloads.
@@ -20,8 +28,9 @@ function getDatabaseUrl(): string {
 
 export function getPool(): Pool {
   if (!globalThis.__dbPool) {
-    globalThis.__dbPool = new Pool({
-      connectionString: getDatabaseUrl(),
+    globalThis.__dbPool = mysql.createPool({
+      uri: getDatabaseUrl(),
+      connectionLimit: 10,
     });
   }
 
@@ -33,5 +42,23 @@ export async function runQuery<T extends QueryResultRow = QueryResultRow>(
   params: ReadonlyArray<SqlParam> = [],
 ): Promise<QueryResult<T>> {
   const pool = getPool();
-  return pool.query<T>(sql, [...params]);
+
+  const normalizedSql = sql.replace(/\$(\d+)/g, '?');
+  const [rowsOrResult] = await pool.query(normalizedSql, [...params]);
+
+  if (Array.isArray(rowsOrResult)) {
+    const rows = rowsOrResult as T[];
+    return {
+      rows,
+      rowCount: rows.length,
+      command: 'SELECT',
+    };
+  }
+
+  const result = rowsOrResult as OkPacket;
+  return {
+    rows: [],
+    rowCount: result.affectedRows,
+    command: result.warningStatus ? 'WRITE_WITH_WARNINGS' : 'WRITE',
+  };
 }
