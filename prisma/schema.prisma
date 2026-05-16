@@ -1,0 +1,78 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id         String     @id @default(cuid())
+  email      String     @unique
+  name       String?
+  role       UserRole   @default(STUDENT)
+  chats      Chat[]
+  activities Activity[]
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+}
+
+model Chat {
+  id         String        @id @default(cuid())
+  userId     String
+  title      String?
+  mode       AgentMode     @default(ESTUDIANTE)
+  messages   ChatMessage[]
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  @@index([userId])
+}
+
+model ChatMessage {
+  id          String      @id @default(cuid())
+  chatId       String
+  role         MessageRole
+  content      String      @db.Text
+  imageUrl     String?
+  tokensUsed   Int?
+  modelUsed    String?
+  chat         Chat        @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  createdAt    DateTime    @default(now())
+
+  @@index([chatId])
+}
+
+model Activity {
+  id           String        @id @default(cuid())
+  userId        String
+  title         String
+  objective     String       @db.Text
+  instructions  String       @db.Text
+  rubricJson    Json?
+  metadataJson  Json?
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([userId])
+}
+
+enum UserRole {
+  STUDENT
+  TEACHER
+  ADMIN
+}
+
+enum AgentMode {
+  PROFESOR
+  ESTUDIANTE
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}

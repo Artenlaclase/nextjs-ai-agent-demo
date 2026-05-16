@@ -6,10 +6,14 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "prisma:generate": "prisma generate",
+    "prisma:push": "prisma db push",
+    "prisma:studio": "prisma studio"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.64",
+    "@prisma/client": "^6.19.3",
     "ai": "^6.0.184",
     "mysql2": "^3.22.3",
     "next": "latest",
@@ -23,6 +27,7 @@
     "@types/pg": "^8.20.0",
     "@types/react": "latest",
     "@types/react-dom": "latest",
+    "prisma": "^6.19.3",
     "typescript": "latest"
   }
 }
