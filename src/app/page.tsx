@@ -2,6 +2,8 @@
 
 import { FormEvent, useState } from 'react';
 
+type AgentMode = 'profesor' | 'estudiante';
+
 type ChatMessage = {
   id: string;
   role: 'user' | 'assistant';
@@ -9,6 +11,7 @@ type ChatMessage = {
 };
 
 export default function AgentePage() {
+  const [mode, setMode] = useState<AgentMode>('estudiante');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -37,6 +40,7 @@ export default function AgentePage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          mode,
           messages: nextMessages,
         }),
       });
@@ -99,8 +103,41 @@ export default function AgentePage() {
     >
       <h1 style={{ fontSize: 32, marginBottom: 8 }}>Mi Primer Agente IA</h1>
       <p style={{ color: '#4b5563', marginBottom: 24 }}>
-        Demo con Next.js App Router, Vercel AI SDK, tool calling y streaming.
+        Agente mixto para Artes Visuales con modo Profesor y modo Estudiante.
       </p>
+
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+        <button
+          type="button"
+          onClick={() => setMode('profesor')}
+          style={{
+            padding: '8px 14px',
+            borderRadius: 999,
+            border: mode === 'profesor' ? '1px solid #1d4ed8' : '1px solid #d1d5db',
+            background: mode === 'profesor' ? '#dbeafe' : '#ffffff',
+            color: '#1f2937',
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}
+        >
+          Soy profesor
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode('estudiante')}
+          style={{
+            padding: '8px 14px',
+            borderRadius: 999,
+            border: mode === 'estudiante' ? '1px solid #047857' : '1px solid #d1d5db',
+            background: mode === 'estudiante' ? '#d1fae5' : '#ffffff',
+            color: '#1f2937',
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}
+        >
+          Soy estudiante
+        </button>
+      </div>
 
       <div
         style={{
@@ -115,7 +152,9 @@ export default function AgentePage() {
       >
         {messages.length === 0 ? (
           <p style={{ color: '#6b7280' }}>
-            Prueba con: ¿Qué ropa me recomiendas para ir a Valparaíso hoy?
+            {mode === 'profesor'
+              ? 'Prueba con: Crea una actividad de 90 minutos sobre color y emociones para 7° básico.'
+              : 'Prueba con: Mira mi dibujo y dime cómo mejorar la composición.'}
           </p>
         ) : null}
 
@@ -139,7 +178,11 @@ export default function AgentePage() {
         <input
           value={input}
           onChange={(event) => setInput(event.target.value)}
-          placeholder="Ej: ¿Cómo está el clima en Valparaíso?"
+          placeholder={
+            mode === 'profesor'
+              ? 'Ej: Crea una rúbrica para collage surrealista en 8° básico'
+              : 'Ej: ¿Cómo puedo mejorar el contraste en mi afiche?'
+          }
           style={{
             flex: 1,
             padding: '12px 14px',

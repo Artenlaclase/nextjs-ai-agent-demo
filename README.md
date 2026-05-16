@@ -43,6 +43,38 @@ Seguridad aplicada por defecto:
 - Bloqueo de DDL/admin (DROP, ALTER, CREATE, TRUNCATE, GRANT, REVOKE)
 - Limite de resultados de lectura entre 1 y 200 filas
 
+## Agente Mixto Para Artes Visuales
+
+La interfaz principal en [src/app/page.tsx](src/app/page.tsx) ahora permite elegir modo:
+
+- Soy profesor
+- Soy estudiante
+
+El backend en [src/app/api/chat/route.ts](src/app/api/chat/route.ts) adapta prompt, tono y herramientas segun ese modo.
+
+Tools pedagogicas implementadas:
+
+- crear_rubrica
+- sugerir_actividad
+- adaptar_lenguaje
+- alinear_objetivo_curricular
+
+Tools artisticas implementadas:
+
+- analizar_elementos_visuales
+- buscar_referentes_artistico
+- generar_consigna_creativa
+
+Reglas por modo:
+
+- Profesor: puede usar herramientas pedagogicas y SQL
+- Estudiante: recibe tutoria formativa y no accede a herramientas SQL
+
+Nota sobre analisis de imagen:
+
+- Esta version base trabaja con descripcion textual de la obra.
+- El siguiente paso recomendado es incorporar carga de imagen y enviarla al modelo multimodal en el endpoint de chat.
+
 ## Desarrollo
 
 ```bash

@@ -5,6 +5,9 @@ import { runQuery, type SqlParam } from '@/lib/db';
 
 export const maxDuration = 30;
 
+const modeSchema = z.enum(['profesor', 'estudiante']);
+type AgentMode = z.infer<typeof modeSchema>;
+
 const sqlParamsSchema = z
   .array(z.union([z.string(), z.number(), z.boolean(), z.null()]))
   .max(50)
@@ -65,36 +68,205 @@ function applyReadLimit(sql: string, maxRows: number): string {
   return `SELECT * FROM (${sql}) AS subquery LIMIT ${boundedLimit}`;
 }
 
+function getSystemPrompt(mode: AgentMode): string {
+  if (mode === 'profesor') {
+    return `
+Eres un asistente para docentes de Artes Visuales.
+Tu foco es planificar, evaluar y adaptar actividades por nivel educativo.
+Cuando entregues material didactico, usa estructura clara: objetivo, inicio, desarrollo, cierre, materiales y evaluacion.
+Si corresponde, usa herramientas pedagogicas y artisticas para producir respuestas concretas.
+Si consultas datos de base de datos, usa primero sql_listar_tablas y luego sql_consultar.
+Para cambios en base de datos usa sql_ejecutar solo si el usuario lo pide de forma explicita.
+    `.trim();
+  }
+
+  return `
+Eres un tutor de Artes Visuales para estudiantes.
+Explica con lenguaje claro, motivador y accionable.
+No resuelvas tareas completas: guia por pasos, da ejemplos y preguntas de reflexion.
+Cuando des feedback visual, comienza con un punto fuerte y luego 2-3 mejoras concretas.
+Si usas herramientas, prioriza las artisticas y de adaptacion de lenguaje.
+    `.trim();
+}
+
+function assertProfesorMode(mode: AgentMode, toolName: string) {
+  if (mode !== 'profesor') {
+    throw new Error(`${toolName} solo esta disponible en modo profesor.`);
+  }
+}
+
 export async function POST(req: Request) {
-  const { messages }: { messages: UIMessage[] } = await req.json();
+  const body: unknown = await req.json();
+  const parsed = z
+    .object({
+      mode: modeSchema.optional(),
+      messages: z.array(z.custom<UIMessage>()),
+    })
+    .parse(body);
+
+  const mode: AgentMode = parsed.mode ?? 'estudiante';
+  const messages = parsed.messages;
   const modelMessages = await convertToModelMessages(messages);
 
   const result = streamText({
     model: openai('gpt-4.1'),
     messages: modelMessages,
-    system: `
-Eres un asistente útil y resolutivo.
-Tienes acceso a herramientas externas.
-Si el usuario pregunta algo que requiere consultar datos o ejecutar una acción,
-usa la herramienta adecuada antes de responder.
-Si la herramienta devuelve datos simulados, aclara que son de ejemplo.
-Si necesitas datos reales de la base de datos usa primero sql_listar_tablas y luego
-sql_consultar. Solo usa sql_ejecutar para cambios cuando el usuario lo pida claramente.
-    `.trim(),
+    system: getSystemPrompt(mode),
     tools: {
-      obtener_clima: tool({
-        description: 'Obtiene el clima actual simulado de una ciudad específica.',
+      crear_rubrica: tool({
+        description: 'Crea una rubrica para evaluar trabajos de Artes Visuales por niveles de logro.',
         inputSchema: z.object({
-          ciudad: z
-            .string()
-            .describe('Nombre de la ciudad. Ejemplo: Valparaíso, Santiago, Buenos Aires'),
+          nivelEducativo: z.string().describe('Ejemplo: 7° basico, 2° medio'),
+          curso: z.string(),
+          tipoActividad: z.string(),
+          criterios: z.array(z.string()).min(1).max(8),
         }),
-        execute: async ({ ciudad }) => {
+        execute: async ({ nivelEducativo, curso, tipoActividad, criterios }) => {
+          assertProfesorMode(mode, 'crear_rubrica');
+
+          const niveles = ['Inicial', 'Medio', 'Logrado'];
+          const rubrica = criterios.map((criterio) => ({
+            criterio,
+            niveles: {
+              Inicial: `Demuestra avances iniciales en ${criterio.toLowerCase()}.`,
+              Medio: `Aplica ${criterio.toLowerCase()} de manera parcial y consistente en partes del trabajo.`,
+              Logrado: `Integra ${criterio.toLowerCase()} con intencion visual clara y coherencia tecnica.`,
+            },
+            sugerencia: `Para mejorar ${criterio.toLowerCase()}, incorpora una instancia breve de autoevaluacion al cierre.`,
+          }));
+
           return {
-            ciudad,
-            temperatura: '22°C',
-            condicion: 'Parcialmente nublado',
-            fuente: 'mock',
+            nivelEducativo,
+            curso,
+            tipoActividad,
+            niveles,
+            rubrica,
+          };
+        },
+      }),
+      sugerir_actividad: tool({
+        description: 'Propone una actividad didactica de Artes Visuales adaptada por nivel y objetivo.',
+        inputSchema: z.object({
+          nivel: z.string(),
+          unidad: z.string(),
+          objetivo: z.string(),
+          duracionMinutos: z.number().int().min(20).max(240),
+          materiales: z.array(z.string()).min(1).max(15),
+        }),
+        execute: async ({ nivel, unidad, objetivo, duracionMinutos, materiales }) => {
+          assertProfesorMode(mode, 'sugerir_actividad');
+          return {
+            titulo: `Actividad de ${unidad} para ${nivel}`,
+            objetivo,
+            duracionMinutos,
+            inicio: 'Observacion guiada de referentes visuales y activacion de conocimientos previos.',
+            desarrollo:
+              'Exploracion tecnica en parejas, produccion individual y retroalimentacion entre pares con pauta breve.',
+            cierre: 'Puesta en comun, autoevaluacion y registro en bitacora visual.',
+            materiales,
+            evaluacion: 'Lista de cotejo formativa con foco en proceso, comunicacion visual y reflexion.',
+          };
+        },
+      }),
+      adaptar_lenguaje: tool({
+        description: 'Adapta un texto a nivel tecnico docente o lenguaje simplificado para estudiantes.',
+        inputSchema: z.object({
+          texto: z.string().min(5),
+          nivelDestino: z.enum(['estudiante', 'docente']),
+        }),
+        execute: async ({ texto, nivelDestino }) => {
+          const adaptado =
+            nivelDestino === 'estudiante'
+              ? `Version clara para estudiante:\n${texto}\n\nExplicacion breve: enfocate en 1 idea principal y 2 acciones concretas.`
+              : `Version tecnica para docente:\n${texto}\n\nSugerencia didactica: explicitar criterio observable, evidencia y nivel de logro.`;
+
+          return {
+            nivelDestino,
+            textoAdaptado: adaptado,
+          };
+        },
+      }),
+      alinear_objetivo_curricular: tool({
+        description: 'Alinea un tema de Artes Visuales con habilidad y objetivo curricular esperado.',
+        inputSchema: z.object({
+          curso: z.string(),
+          tema: z.string(),
+          habilidad: z.string(),
+        }),
+        execute: async ({ curso, tema, habilidad }) => {
+          assertProfesorMode(mode, 'alinear_objetivo_curricular');
+          return {
+            curso,
+            tema,
+            habilidad,
+            objetivoSugerido: `Desarrollar ${habilidad.toLowerCase()} mediante la creacion y analisis de producciones visuales relacionadas con ${tema.toLowerCase()}.`,
+            evidencias: [
+              'Bitacora con decisiones de composicion y color.',
+              'Obra final con intencion visual justificada.',
+              'Autoevaluacion con criterio y mejora propuesta.',
+            ],
+          };
+        },
+      }),
+      analizar_elementos_visuales: tool({
+        description: 'Analiza elementos visuales clave de una obra a partir de descripcion textual.',
+        inputSchema: z.object({
+          descripcion: z.string().min(10).describe('Descripcion de la obra o del trabajo del estudiante.'),
+        }),
+        execute: async ({ descripcion }) => {
+          return {
+            descripcion,
+            elementos: {
+              color: 'Identificar paleta dominante, temperatura y armonia/contraste.',
+              linea: 'Observar direccion, ritmo y expresividad de los trazos.',
+              forma: 'Revisar relacion figura-fondo y jerarquia de formas.',
+              textura: 'Distinguir texturas reales o visuales y su intencion.',
+              composicion: 'Evaluar equilibrio, punto focal y recorrido visual.',
+            },
+            sugerencia: 'Solicita una foto de mejor luz o una descripcion mas detallada para feedback mas preciso.',
+          };
+        },
+      }),
+      buscar_referentes_artistico: tool({
+        description: 'Sugiere artistas, movimientos y obras de referencia segun tecnica, tema o estilo.',
+        inputSchema: z.object({
+          tecnica: z.string().optional(),
+          tema: z.string().optional(),
+          estilo: z.string().optional(),
+        }),
+        execute: async ({ tecnica, tema, estilo }) => {
+          const consulta = [tecnica, tema, estilo].filter(Boolean).join(' | ');
+          return {
+            consulta,
+            referentes: [
+              { artista: 'Paul Klee', movimiento: 'Expresionismo', aporte: 'Color emocional y sintesis formal.' },
+              { artista: 'Frida Kahlo', movimiento: 'Surrealismo figurativo', aporte: 'Narrativa simbolica autobiografica.' },
+              {
+                artista: 'Yayoi Kusama',
+                movimiento: 'Arte contemporaneo',
+                aporte: 'Patrones repetitivos, instalacion y percepcion espacial.',
+              },
+            ],
+          };
+        },
+      }),
+      generar_consigna_creativa: tool({
+        description: 'Genera una consigna creativa para clase o trabajo autonomo de estudiante.',
+        inputSchema: z.object({
+          edadONivel: z.string(),
+          tema: z.string(),
+          tecnica: z.string(),
+        }),
+        execute: async ({ edadONivel, tema, tecnica }) => {
+          return {
+            consigna: `Crea una obra sobre "${tema}" usando la tecnica ${tecnica}. Debes mostrar un punto focal claro, contraste y una decision personal de color.`,
+            nivel: edadONivel,
+            pasos: [
+              'Haz 3 bocetos rapidos y elige uno.',
+              'Define paleta de 3-5 colores y materiales.',
+              'Produce la obra y registra decisiones en tu bitacora.',
+            ],
+            criterioExito: 'La obra comunica una intencion visual y evidencia experimentacion tecnica.',
           };
         },
       }),
@@ -102,6 +274,8 @@ sql_consultar. Solo usa sql_ejecutar para cambios cuando el usuario lo pida clar
         description: 'Lista las tablas disponibles en el esquema public de PostgreSQL.',
         inputSchema: z.object({}),
         execute: async () => {
+          assertProfesorMode(mode, 'sql_listar_tablas');
+
           const result = await runQuery<{
             table_name: string;
           }>(
@@ -128,6 +302,8 @@ sql_consultar. Solo usa sql_ejecutar para cambios cuando el usuario lo pida clar
           maxRows: z.number().int().min(1).max(200).default(50),
         }),
         execute: async ({ sql, params, maxRows }) => {
+          assertProfesorMode(mode, 'sql_consultar');
+
           const validatedSql = assertReadOnlySql(sql);
           const limitedSql = applyReadLimit(validatedSql, maxRows);
           const result = await runQuery(limitedSql, (params ?? []) as SqlParam[]);
@@ -149,6 +325,8 @@ sql_consultar. Solo usa sql_ejecutar para cambios cuando el usuario lo pida clar
           params: sqlParamsSchema.describe('Parametros opcionales para placeholders SQL ($1, $2, etc.).'),
         }),
         execute: async ({ sql, params }) => {
+          assertProfesorMode(mode, 'sql_ejecutar');
+
           const validatedSql = assertMutationSql(sql);
           const result = await runQuery(validatedSql, (params ?? []) as SqlParam[]);
 
