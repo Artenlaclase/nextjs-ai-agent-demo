@@ -1,4 +1,4 @@
-import { Pool, type QueryResultRow } from 'pg';
+import { Pool, type QueryResult, type QueryResultRow } from 'pg';
 
 export type SqlParam = string | number | boolean | null;
 
@@ -31,7 +31,7 @@ export function getPool(): Pool {
 export async function runQuery<T extends QueryResultRow = QueryResultRow>(
   sql: string,
   params: ReadonlyArray<SqlParam> = [],
-) {
+): Promise<QueryResult<T>> {
   const pool = getPool();
   return pool.query<T>(sql, [...params]);
 }

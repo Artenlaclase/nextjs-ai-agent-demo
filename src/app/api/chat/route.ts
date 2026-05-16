@@ -84,7 +84,7 @@ sql_consultar. Solo usa sql_ejecutar para cambios cuando el usuario lo pida clar
     tools: {
       obtener_clima: tool({
         description: 'Obtiene el clima actual simulado de una ciudad específica.',
-        parameters: z.object({
+        inputSchema: z.object({
           ciudad: z
             .string()
             .describe('Nombre de la ciudad. Ejemplo: Valparaíso, Santiago, Buenos Aires'),
@@ -100,7 +100,7 @@ sql_consultar. Solo usa sql_ejecutar para cambios cuando el usuario lo pida clar
       }),
       sql_listar_tablas: tool({
         description: 'Lista las tablas disponibles en el esquema public de PostgreSQL.',
-        parameters: z.object({}),
+        inputSchema: z.object({}),
         execute: async () => {
           const result = await runQuery<{
             table_name: string;
@@ -115,14 +115,14 @@ sql_consultar. Solo usa sql_ejecutar para cambios cuando el usuario lo pida clar
 
           return {
             total: result.rowCount,
-            tables: result.rows.map((row) => row.table_name),
+            tables: result.rows.map((row: { table_name: string }) => row.table_name),
           };
         },
       }),
       sql_consultar: tool({
         description:
           'Ejecuta una consulta SQL de solo lectura (SELECT/CTE) sobre PostgreSQL y devuelve filas.',
-        parameters: z.object({
+        inputSchema: z.object({
           sql: z.string().min(1).describe('Consulta SQL de lectura, por ejemplo: SELECT * FROM usuarios'),
           params: sqlParamsSchema.describe('Parametros opcionales para placeholders SQL ($1, $2, etc.).'),
           maxRows: z.number().int().min(1).max(200).default(50),
@@ -141,7 +141,7 @@ sql_consultar. Solo usa sql_ejecutar para cambios cuando el usuario lo pida clar
       sql_ejecutar: tool({
         description:
           'Ejecuta una mutacion SQL controlada (INSERT/UPDATE/DELETE). Requiere SQL_ADMIN_ENABLED=true.',
-        parameters: z.object({
+        inputSchema: z.object({
           sql: z
             .string()
             .min(1)
@@ -161,5 +161,5 @@ sql_consultar. Solo usa sql_ejecutar para cambios cuando el usuario lo pida clar
     },
   });
 
-  return result.toDataStreamResponse();
+  return result.toUIMessageStreamResponse();
 }
