@@ -9,6 +9,8 @@
     "start": "next start",
     "lint": "next lint",
     "db:check": "node scripts/db-check.mjs",
+    "db:up": "docker compose up -d mysql",
+    "db:down": "docker compose down",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
     "prisma:studio": "prisma studio"
