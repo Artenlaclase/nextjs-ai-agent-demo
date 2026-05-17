@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "predev": "npm run db:check",
     "dev": "next dev",
+    "dev:strict": "npm run db:check && next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
